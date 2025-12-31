@@ -16,7 +16,6 @@ export default function Home() {
     {value : 'openai/gpt-oss-120b', label : 'GPT-OSS 120B'},
     {value : 'llama-3.3-70b-versatile', label : 'Llama 3.3 70b-versatile'},
   ]
-  const reply : Reply[]=[];
 
   async function ask(){
     const ques=quesRef.current?.value;
@@ -29,45 +28,33 @@ export default function Home() {
         },
         body:JSON.stringify({ques,model})
       })
+
       const reader=res.body?.getReader();
       const decoder=new TextDecoder();
-      const curReply : Reply = {
-        text : '',
-        project : '',
-        files : []
-      };
-      const curFile : {
-        path : string,
-        content : string
-      }={
-        path : '',
-        content : ''
-      }
+      
+      const curReply : Reply = { text : '', project : '', files : []};
+      const curFile : { path : string, content : string}={ path : '', content : ''}
 
       let EVENT_TEXT : boolean=false;
       let EVENT_PROJECT_START : boolean=false;
       let EVENT_FILE_START : boolean=false;
-      let EVENT_FILE_CONTENT : boolean=false; 
 
       let buffer : string='';
 
       while(true && reader){
         const {value,done}=await reader?.read();
+
         if(done) {
-          console.log(curReply);
-          reply.push(curReply);
+          // push the current reply to a global reply array
           curReply.files=[];
           curReply.project='';
           curReply.text='';
           break;
         };
-        const chunk=decoder.decode(value);
         
-        // EVENT_TEXT, EVENT_PROJECT_START, EVENT_FILE_START, EVENT_FILE_CONTENT, EVENT_FILE_END, EVENT_PROJECT_END
-
+        const chunk=decoder.decode(value);
         buffer+=chunk;
-        // console.log(buffer);
-
+        
         if(buffer.includes('EVENT_TEXT')){
           EVENT_TEXT=true;
           let splits=buffer.split('EVENT_TEXT');
@@ -92,7 +79,6 @@ export default function Home() {
           buffer=splits[1];
         }
         else if(buffer.includes('EVENT_FILE_CONTENT')){
-          EVENT_FILE_CONTENT=true;
           let splits=buffer.split('EVENT_FILE_CONTENT');
           if(EVENT_FILE_START){
             EVENT_FILE_START=false;
@@ -102,11 +88,7 @@ export default function Home() {
         }
         else if(buffer.includes('EVENT_FILE_END')){
           let splits=buffer.split('EVENT_FILE_END');
-          EVENT_FILE_CONTENT=false;
           curFile.content=splits[0];
-          console.log('***************************************************************************************')
-          console.log(curFile.content);
-          console.log('***************************************************************************************')
           buffer=splits[1];
 
           curReply.files.push(curFile);
@@ -114,7 +96,7 @@ export default function Home() {
           curFile.path='';
         }
         else if(buffer.includes('EVENT_PROJECT_END')){
-          console.log('Project built Successfully.') 
+          // console.log('Project built Successfully.') 
         }
       }      
 

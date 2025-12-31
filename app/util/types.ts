@@ -1,8 +1,8 @@
 export interface Reply{
-    text : string | null,
-    project : string | null,
+    text : string ,
+    project : string ,
     files : {
-        path : string | null,
-        content : string | null
+        path : string ,
+        content : string 
     }[]
 }
