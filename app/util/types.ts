@@ -1,10 +1,8 @@
 export interface Reply{
-    type : 'text' | 'project',
-    content : string | null,
-    description : string | null,
+    text : string | null,
+    project : string | null,
     files : {
-        path : string,
-        language : string,
-        content : string
+        path : string | null,
+        content : string | null
     }[]
 }
