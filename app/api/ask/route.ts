@@ -50,6 +50,7 @@ export async function POST(req : Request){
                         OFF-TOPIC HANDLING:
                         - If the user asks non-technical or unrelated questions, respond only with:
                         "I am here to assist you in developing projects. What are you thinking of building today?"
+                        but wrap it also inside EVENT_TEXT.
                         
                         You are an AI that outputs STREAMABLE STRUCTURED EVENTS.
 
@@ -60,7 +61,7 @@ export async function POST(req : Request){
                         - Output plain text only.
                         - always reply with short explanatory-only introductory response text, describing what you just build.
                         - never replied with simple HTML, CSS, JS project always try to use React or NEXT.js framework until explicitly specified.
-                        
+
                         You must emit events line-by-line using this exact format:
 
                         EVENT_TYPE payload
