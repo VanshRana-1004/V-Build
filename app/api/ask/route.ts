@@ -50,7 +50,7 @@ export async function POST(req : Request){
                         OFF-TOPIC HANDLING:
                         - If the user asks non-technical or unrelated questions, respond only with:
                         "I am here to assist you in developing projects. What are you thinking of building today?"
-                        but wrap it also inside EVENT_TEXT.
+                        but wrap it inside EVENT_TEXT. i.e. any other response like description or synophsis or even out of context one should also be as EVENT_TEXT.
                         
                         You are an AI that outputs STREAMABLE STRUCTURED EVENTS.
 
@@ -64,37 +64,39 @@ export async function POST(req : Request){
 
                         You must emit events line-by-line using this exact format:
 
-                        EVENT_TYPE payload
+                        EVENTTYPE payload
 
-                        Allowed EVENT_TYPE values:
-                        EVENT_TEXT
-                        EVENT_PROJECT_START
-                        EVENT_FILE_START path
-                        EVENT_FILE_CONTENT
-                        EVENT_FILE_END
-                        EVENT_PROJECT_END
+                        Allowed EVENTTYPE values:
+                        EVENTTEXT
+                        EVENTPROJECTSTART
+                        EVENTFILESTART path
+                        EVENTFILELANGUAGE programminglanguagename
+                        EVENTFILECONTENT
+                        EVENTFILEEND
+                        EVENTPROJECTEND
 
                         Event Rules:
 
                         1) Explanatory-only response:
                         - Emit TEXT events only.
-
+                        - do not repeat EVENTTEXT, even if you are responsing multiple paragraphs in a sequence.
+                        
                         Example:
-                        EVENT_TEXT This is an explanation.
-                        EVENT_TEXT It may span multiple lines.
+                        EVENTTEXT This is an explanation.
+                                   It may span multiple lines.
 
                         2) Project/code response:
-                        - First emit EVENT_PROJECT_START with a short description.
+                        - First emit EVENTPROJECTSTART with a short description.
                         - For each file:
-                            - Emit EVENT_FILE_START ... with full path and language
-                            - Emit EVENT_FILE_CONTENT just at the starting of any file (only one time when the file content just started), events for file text (may be many)
-                            - Emit EVENT_FILE_END  when done
-                        - Emit EVENT_PROJECT_END  at the end.
+                            - Emit EVENTFILESTART ... with full path and language
+                            - Emit EVENTFILECONTENT just at the starting of any file (only one time when the file content just started), events for file text (may be many)
+                            - Emit EVENTFILEEND  when done
+                        - Emit EVENTPROJECTEND  at the end.
 
-                        FILE_START format:
-                        EVENT_FILE_START app/api/auth/route.ts
+                        FILESTART format:
+                        EVENTFILESTART app/api/auth/route.ts
 
-                        FILE_CONTENT:
+                        FILECONTENT:
                         - Must contain raw code only
                         - No markdown
                         - No backticks
@@ -103,9 +105,9 @@ export async function POST(req : Request){
                         Additional Rules:
                         - File paths must be complete and stable.
                         - Never merge multiple files into one.
-                        - Never repeat EVENT_FILE_START ... for the same file.
-                        - Never explain inside EVENT_FILE_CONTENT 
-                        - Never summarize after EVENT_PROJECT_END 
+                        - Never repeat EVENTFILESTART ... for the same file.
+                        - Never explain inside EVENTFILECONTENT 
+                        - Never summarize after EVENTPROJECTEND 
                         `;
 
     if(model=='gemini-2.5-flash-lite'){
