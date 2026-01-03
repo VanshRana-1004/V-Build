@@ -1,9 +1,8 @@
 'use client';
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CustomSelect from "./components/custom-select";
 import { Reply } from "./util/types";
-import { Editor } from "@monaco-editor/react";
 
 export default function Home() {
 
@@ -22,13 +21,7 @@ export default function Home() {
   const bufferRef=useRef<string>('');
   const streamingRef=useRef<boolean>(false);
 
-  // fix this rendering logic again based on space and EVENTTYPE
-
-
-
   function startFlusher(){
-    
-    setChat((prev)=>[...prev,{ques : null, text : '', project : '', focus : true, files : []}]);
 
     let eventText : boolean=false;
     let eventProject : boolean=false;
@@ -36,8 +29,8 @@ export default function Home() {
     let eventFileLanguage : boolean=false;
     let eventFileContent : boolean=false;
 
-    function completePrev(chunk : string){
-
+    // to push previous type of streamed content based on its EVENTTYPE
+    async function completePrev(chunk : string,caller : string){
       if(eventText){
         setChat(prev=>{
           if(prev.length===0) return prev;
@@ -62,17 +55,11 @@ export default function Home() {
       }
       else if(eventFileName){
         setChat(prev=>{
-          if(prev.length===0) return prev;
-          
+          if(prev.length===0) return prev;     
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            path : lastFile.path+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,path : f.path + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
@@ -83,16 +70,10 @@ export default function Home() {
       else if(eventFileLanguage){
         setChat(prev=>{
           if(prev.length===0) return prev;
-          
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            language : lastFile.language+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,language : f.language + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
@@ -103,16 +84,10 @@ export default function Home() {
       else if(eventFileContent){
         setChat(prev=>{
           if(prev.length===0) return prev;
-          
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            content : lastFile.content+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,content : f.content + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
@@ -121,7 +96,6 @@ export default function Home() {
         eventFileContent=false;
       }
       else return;
-
     }
 
     const interval=setInterval(()=>{
@@ -137,23 +111,22 @@ export default function Home() {
       let chunk=bufferRef.current.slice(0,separator+1);
       bufferRef.current=bufferRef.current.slice(separator+1);
 
-      console.log(chunk);
-
+      // to separate previous and current content based on EVENTTYPE
       if(chunk.includes('EVENTTEXT')){
         const splits=chunk.split('EVENTTEXT');
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTTEXT');
         eventText=true;
         chunk=splits[1];
       }
       else if(chunk.includes('EVENTPROJECTSTART')){
         const splits=chunk.split('EVENTPROJECTSTART');
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTPROJECTSTART');
         eventProject=true;
         chunk=splits[1];
       }
       else if(chunk.includes('EVENTFILESTART')){
         const splits=chunk.split('EVENTFILESTART');
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTFILESTART');
         setChat(prev=>{
           if(prev.length===0) return prev;
           const last=prev[prev.length-1]
@@ -177,24 +150,26 @@ export default function Home() {
       }
       else if(chunk.includes('EVENTFILELANGUAGE')){
         const splits=chunk.split('EVENTFILELANGUAGE');
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTFILELANGUAGE');
         eventFileLanguage=true;
         chunk=splits[1];
       }
       else if(chunk.includes('EVENTFILECONTENT')){
         const splits=chunk.split('EVENTFILECONTENT');
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTFILECONTENT');
         eventFileContent=true;
         chunk=splits[1];
       }
       else if(chunk.includes('EVENTFILEEND')){
         const splits=chunk.split('EVENTFILEEND');   
-        completePrev(splits[0]);
+        completePrev(splits[0],'EVENTFILEEND');
+        chunk=splits[1];
       }
       else if(chunk.includes('EVENTPROJECTEND')){
         return;
       }
 
+      // to push new streamed content based on its EVENTTYPE
       if(eventText){
         setChat(prev=>{
           if(prev.length===0) return prev;
@@ -218,35 +193,23 @@ export default function Home() {
       else if(eventFileName){
         setChat(prev=>{
           if(prev.length===0) return prev;
-          
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            path : lastFile.path+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,path : f.path + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
           ]
         })
-      }
+      } 
       else if(eventFileLanguage){
         setChat(prev=>{
           if(prev.length===0) return prev;
-          
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            language : lastFile.language+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,language : f.language + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
@@ -256,16 +219,10 @@ export default function Home() {
       else if(eventFileContent){
         setChat(prev=>{
           if(prev.length===0) return prev;
-          
           const last=prev[prev.length-1];
-          const files=last.files;
-          const lastFile=files[files.length-1];
-          
-          files[files.length-1]={
-            ...lastFile,
-            content : lastFile.content+chunk
-          }
-
+          const files=last.files.map((f,i)=>
+            i===last.files.length-1 ? {...f,content : f.content + chunk} : f
+          )
           return [
             ...prev.slice(0,-1),
             {...last,files}
@@ -305,6 +262,7 @@ export default function Home() {
       if(!reader) return;
       streamingRef.current=true;
 
+      setChat((prev)=>[...prev,{ques : null, text : '', project : '', focus : true, files : []}]);
       startFlusher();
 
       while(true){
@@ -316,7 +274,6 @@ export default function Home() {
         const chunk=decoder.decode(value);
         bufferRef.current+=chunk;
       }
-
     }
   }
 
@@ -338,7 +295,7 @@ export default function Home() {
           <textarea ref={quesRef} placeholder="What you want to build today?" className="text-white bg-none text-sm resize-none focus:outline-0 flex-1 h-full w-full"></textarea>
           <div className="flex gap-2 right-2 bottom-2 self-end">
             <CustomSelect options={modelOptions} initialValue={model} onChange={setModel}/>
-            <div onClick={ask} className="bg-zinc-50 px-4 py-1.5 rounded text-sm text-zinc-900 font-medium hover:bg-zinc-200 cursor-pointer">Send</div>
+            <div onClick={ask} className="bg-zinc-50 px-4 py-1.5 rounded-lg text-sm text-zinc-900 font-medium hover:bg-zinc-200 cursor-pointer">Send</div>
           </div>
         </div>
       
@@ -346,16 +303,28 @@ export default function Home() {
       
       <div className="w-3/4 h-full flex flex-col border border-zinc-700/50 rounded-md">
         <div className="w-full h-auto py-2 border-b border-zinc-700/50 px-5">
-          <div className="text-sm text-zinc-300">
-            {chat.map((convo : Reply ,ind : number)=>(
+          <div className="text-sm text-zinc-300 flex gap-1">
+            Project Description {chat.map((convo : Reply , ind : number)=>(
               <p key={ind} className="text-sm text-zinc-300">
-                {convo.focus && convo.project}
+                {convo.focus && convo.project }
               </p>
             ))}
           </div>
         </div>
         <div className="flex w-full flex-1">
-          
+          <div className="w-1/4 h-full border-r border-r-zinc-700/50 flex flex-col ">
+            <p className="border-b border-zinc-700/50 text-zinc-400 px-5 py-1.5 text-sm">Project Files</p>
+            {chat.filter((convo: Reply) => convo.focus).map((convo: Reply, ind: number) => (
+              <div key={ind} className="flex flex-col px-5 py-0.5">
+                {convo.files.map((file, fileIndex) => (
+                  <p key={fileIndex} className="text-zinc-400 text-sm">{file.path}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="w-3/4 h-full">
+            <p className="border-b border-zinc-700/50 text-zinc-400 px-5 py-1.5 text-sm">File Path</p>
+          </div>
         </div>
       </div>
     
@@ -363,3 +332,5 @@ export default function Home() {
 
   </div>
 }
+
+// render code using pre
