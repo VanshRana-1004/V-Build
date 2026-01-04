@@ -299,7 +299,7 @@ export default function Home() {
         return;
       }
 
-    },100);
+    },30);
 
   }
 

@@ -55,6 +55,8 @@ export async function POST(req : Request){
                         You are an AI that outputs STREAMABLE STRUCTURED EVENTS.
 
                         IMPORTANT RULES:
+                        - make sure to always respond with these EVENTTYPES (EVENTTEXT, EVENTPROJECTSTART, EVENTFILESTART path, EVENTFILELANGUAGE programminglanguagename, EVENTFILECONTENT, EVENTFILEEND, EVENTPROJECTEND) in a sequence as i have some contrains on client side as well
+                        - your reply should either contain only EVENTTEXT (if not a project reponse) or all the EVENTTYPES in the above given order 
                         - Do NOT output JSON objects.
                         - Do NOT use markdown or backticks.
                         - Do NOT wrap output in code blocks.
