@@ -20,9 +20,11 @@ export default function Home() {
 
   const bufferRef=useRef<string>('');
   const streamingRef=useRef<boolean>(false);
+  const [newReply,setNewReply]=useState<boolean>(false);
 
   function startFlusher(){
 
+    let thinking : boolean=false;
     let eventText : boolean=false;
     let eventProject : boolean=false;
     let eventFileName : boolean=false;
@@ -31,7 +33,18 @@ export default function Home() {
 
     // to push previous type of streamed content based on its EVENTTYPE
     async function completePrev(chunk : string,caller : string){
-      if(eventText){
+      if(thinking){
+        setChat(prev=>{
+          if(prev.length===0) return prev;
+          const last=prev[prev.length-1];
+          return [
+            ...prev.slice(0,-1),
+            {...last, thinking : last.thinking + chunk}
+          ]
+        })
+        thinking=false;
+      }
+      else if(eventText){
         setChat(prev=>{
           if(prev.length===0) return prev;
           const last=prev[prev.length-1];
@@ -82,6 +95,10 @@ export default function Home() {
         eventFileLanguage=false;
       }
       else if(eventFileContent){
+        if(chunk.includes('EVENTFILEEND')){
+          const splits=chunk.split('EVENTFILEEND');
+          chunk=splits[0];
+        }
         setChat(prev=>{
           if(prev.length===0) return prev;
           const last=prev[prev.length-1];
@@ -106,13 +123,44 @@ export default function Home() {
       }
       
       const separator=bufferRef.current.indexOf(' ');
-      if(separator==-1) return;
+      if(separator==-1){
+        console.log('[last] : ',bufferRef.current);
+        if(bufferRef.current.includes('EVENTPROJECTEND')){
+          const splits=bufferRef.current.split('EVENTPROJECTEND');
+          if(splits[0].includes('EVENTFILEEND')){
+            const subSplits=splits[0].split('EVENTFILEEND');
+            setChat(prev=>{
+              if(prev.length===0) return prev;
+              const last=prev[prev.length-1];
+              const files=last.files.map((f,i)=>
+                i===last.files.length-1 ? {...f,content : f.content + subSplits[0]} : f
+              )
+              return [
+                ...prev.slice(0,-1),
+                {...last,files}
+              ]
+            })
+          }
+          if(!streamingRef.current) clearInterval(interval);   
+        }
+        return;
+      } 
       
       let chunk=bufferRef.current.slice(0,separator+1);
       bufferRef.current=bufferRef.current.slice(separator+1);
 
       // to separate previous and current content based on EVENTTYPE
-      if(chunk.includes('EVENTTEXT')){
+      if(chunk.includes('<think>')){
+        const split=chunk.split('<think>');
+        thinking=true;
+        chunk=split[1];
+      }
+      else if(chunk.includes('</think>')){
+        const split=chunk.split('</think>');
+        completePrev(split[0],'</think>');
+        bufferRef.current=split[1]+bufferRef.current;
+      }
+      else if(chunk.includes('EVENTTEXT')){
         const splits=chunk.split('EVENTTEXT');
         completePrev(splits[0],'EVENTTEXT');
         eventText=true;
@@ -129,19 +177,25 @@ export default function Home() {
         completePrev(splits[0],'EVENTFILESTART');
         setChat(prev=>{
           if(prev.length===0) return prev;
-          const last=prev[prev.length-1]
+          const last=prev[prev.length-1];
+          const updatedFiles = [
+            ...last.files.map((f, i) =>
+              i === last.files.length - 1
+                ? { ...f, focus: false }
+                : f
+            ),
+            {
+              path: '',
+              content: '',
+              language: '',
+              focus: true,
+            },
+          ];
           return [
             ...prev.slice(0,-1),
             {
               ...last,
-              files : [
-                ...last.files,
-                {
-                  path : '' ,
-                  content : '',
-                  language : '' 
-                }
-              ] 
+              files : updatedFiles 
             }
           ]
         })
@@ -166,11 +220,23 @@ export default function Home() {
         chunk=splits[1];
       }
       else if(chunk.includes('EVENTPROJECTEND')){
+        const splits=chunk.split('EVENTPROJECTEND');   
+        completePrev(splits[0],'EVENTPROJECTEND');
         return;
       }
 
       // to push new streamed content based on its EVENTTYPE
-      if(eventText){
+      if(thinking){
+        setChat(prev=>{
+          if(prev.length===0) return prev;
+          const last=prev[prev.length-1];
+          return [
+            ...prev.slice(0,-1),
+            {...last, thinking : last.thinking + chunk}
+          ]
+        })
+      }
+      else if(eventText){
         setChat(prev=>{
           if(prev.length===0) return prev;
           const last=prev[prev.length-1];
@@ -237,6 +303,10 @@ export default function Home() {
 
   }
 
+  useEffect(()=>{
+    startFlusher();
+  },[newReply]);
+
   async function ask(){
     const ques=quesRef.current?.value;
     ques?.trim();
@@ -244,7 +314,7 @@ export default function Home() {
     
     if(ques && ques!=''){
       
-      const newQues : Reply={ques : ques, text : '', project : '', focus : false, files : []};
+      const newQues : Reply={ques : ques, thinking : '',text : '', project : '', focus : false, files : []};
       setChat((chat)=>[...chat,newQues]);
       if(quesRef.current) quesRef.current.value='';
       
@@ -262,8 +332,16 @@ export default function Home() {
       if(!reader) return;
       streamingRef.current=true;
 
-      setChat((prev)=>[...prev,{ques : null, text : '', project : '', focus : true, files : []}]);
-      startFlusher();
+      setChat(prev =>
+        prev.map(c => ({
+          ...c,
+          focus: false,
+        }))
+      );
+
+      setChat((prev)=>[...prev,{ques : null, thinking : '',text : '', project : '', focus : true, files : []}]);
+      // startFlusher();
+      setNewReply(newReply=>!newReply)
 
       while(true){
         const {value,done}=await reader.read();
@@ -277,6 +355,31 @@ export default function Home() {
     }
   }
 
+  function changeFileFocus(ind : number, fileInd : number){
+    setChat(prev =>
+      prev.map((chat, chatIndex) => {
+        if (chatIndex !== ind) return chat;
+
+        return {
+          ...chat,
+          files: chat.files.map((file, fIndex) => ({
+            ...file,
+            focus: fIndex === fileInd,
+          })),
+        };
+      })
+    );
+  }
+
+  function changeReplyFocus(ind: number) {
+    setChat(prev =>
+      prev.map((chat, chatInd) => ({
+        ...chat,
+        focus: chatInd === ind,
+      }))
+    );
+  }
+
   return <div className="bg-zinc-950 flex h-screen w-screen ">
 
     <div className="w-full h-full flex p-1.5 gap-1.5 ">
@@ -285,8 +388,10 @@ export default function Home() {
 
         <div className="h-[80%] border border-zinc-700/50 rounded-md w-full p-3 pt-0 overflow-y-auto ">
           {chat.map((convo : Reply,ind : number)=>(
-            <div key={ind} className={`max-w-[80%] h-auto text-wrap ${convo.ques!=null ? 'place-self-end justify-end' : 'place-self-start justify-start' } px-4 py-2 text-sm text-zinc-200 rounded-md mt-3`}>
-              {convo.ques!=null ? convo.ques : convo.text}
+            <div key={ind} onClick={()=>changeReplyFocus(ind)} className={`text-sm max-w-[80%] h-auto text-wrap  ${convo.ques!=null ? 'place-self-end justify-end ' : 'border border-transparent place-self-start justify-start bg-zinc-600/20' } ${convo.ques==null && 'hover:border hover:border-zinc-100/30'} px-4 py-2 text-sm text-zinc-200 rounded-md mt-3`}>
+              {convo.ques !== null && <p>{convo.ques}</p>}
+              {convo.ques === null && convo.thinking !== '' && <p className="italic opacity-70 border-b border-zinc-600">Thinking : {convo.thinking}</p>}
+              {convo.ques === null && convo.text !== '' && <p className={convo.thinking !== '' ? 'mt-2' : ''}>{convo.text} </p>}
             </div>
           ))}
         </div>
@@ -304,26 +409,42 @@ export default function Home() {
       <div className="w-3/4 h-full flex flex-col border border-zinc-700/50 rounded-md">
         <div className="w-full h-auto py-2 border-b border-zinc-700/50 px-5">
           <div className="text-sm text-zinc-300 flex gap-1">
-            Project Description {chat.map((convo : Reply , ind : number)=>(
-              <p key={ind} className="text-sm text-zinc-300">
-                {convo.focus && convo.project }
-              </p>
-            ))}
+            Project Description : { chat.filter(c=>c.focus).map((r)=>(r.project))}
           </div>
         </div>
         <div className="flex w-full flex-1">
-          <div className="w-1/4 h-full border-r border-r-zinc-700/50 flex flex-col ">
+          <div className="w-1/5 h-full border-r border-r-zinc-700/50 flex flex-col ">
             <p className="border-b border-zinc-700/50 text-zinc-400 px-5 py-1.5 text-sm">Project Files</p>
-            {chat.filter((convo: Reply) => convo.focus).map((convo: Reply, ind: number) => (
-              <div key={ind} className="flex flex-col px-5 py-0.5">
-                {convo.files.map((file, fileIndex) => (
-                  <p key={fileIndex} className="text-zinc-400 text-sm">{file.path}</p>
-                ))}
-              </div>
-            ))}
+            {chat.map((c,ind)=>
+              c.focus && (
+                <div key={ind} className="flex flex-col px-2 py-1 gap-1">
+                  {c.files.map((f,fileInd)=>(
+                    <p key={fileInd} onClick={()=>changeFileFocus(ind,fileInd)} className="text-zinc-400 text-sm hover:bg-zinc-700/30 cursor-pointer px-3 rounded-md py-1 truncate">{f.path}</p>
+                  ))}
+                </div>
+              )
+            )}
           </div>
-          <div className="w-3/4 h-full">
-            <p className="border-b border-zinc-700/50 text-zinc-400 px-5 py-1.5 text-sm">File Path</p>
+          <div className="w-4/5 h-full flex flex-col">
+            <div className="flex gap-1 items-center border-b border-zinc-700/50 text-zinc-400 px-5 py-1.5 text-sm">
+              File Name : 
+              {chat.filter(c=>c.focus).map((r,ind)=>(
+                <div key={ind} className="flex flex-col px-5 ">
+                  {r.files.filter(f=>f.focus).map((f,fileInd)=>(
+                    <p key={fileInd}  className="text-zinc-400 text-sm ">{f.path}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="w-full px-3 overflow-y-auto h-[645px]">
+              {chat.filter(c=>c.focus).map((r,ind)=>(
+                <div key={ind} className="flex flex-col px-5 py-0.5">
+                  {r.files.filter(f=>f.focus).map((f,fileInd)=>(
+                    <pre key={fileInd} className="text-zinc-400 text-sm">{f.content}</pre>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -332,5 +453,3 @@ export default function Home() {
 
   </div>
 }
-
-// render code using pre
