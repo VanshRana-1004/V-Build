@@ -64,7 +64,6 @@ export async function POST(req : Request){
                         - always reply with short explanatory-only introductory response text, describing what you just build.
                         - never replied with simple HTML, CSS, JS project always try to use React or NEXT.js framework until explicitly specified.
                         - return whole project framework like react.js or Next.js (or the user specified framework) just like folder structure followed in VS code. 
-                        - when you generate code don't foget to put backslash-n after every line 
 
                         You must emit events line-by-line using this exact format:
 

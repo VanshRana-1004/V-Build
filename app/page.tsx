@@ -123,31 +123,15 @@ export default function Home() {
       }
       
       const separator=bufferRef.current.indexOf(' ');
-      if(separator==-1){
-        console.log('[last] : ',bufferRef.current);
-        if(bufferRef.current.includes('EVENTPROJECTEND')){
-          const splits=bufferRef.current.split('EVENTPROJECTEND');
-          if(splits[0].includes('EVENTFILEEND')){
-            const subSplits=splits[0].split('EVENTFILEEND');
-            setChat(prev=>{
-              if(prev.length===0) return prev;
-              const last=prev[prev.length-1];
-              const files=last.files.map((f,i)=>
-                i===last.files.length-1 ? {...f,content : f.content + subSplits[0]} : f
-              )
-              return [
-                ...prev.slice(0,-1),
-                {...last,files}
-              ]
-            })
-          }
-          if(!streamingRef.current) clearInterval(interval);   
-        }
-        return;
-      } 
-      
-      let chunk=bufferRef.current.slice(0,separator+1);
-      bufferRef.current=bufferRef.current.slice(separator+1);
+      let chunk=bufferRef.current;
+      if(separator!=-1){
+        chunk=bufferRef.current.slice(0,separator+1);
+        bufferRef.current=bufferRef.current.slice(separator+1);
+      }
+      else{
+        bufferRef.current='';
+      }
+      console.log('[chunk] : ',chunk);
 
       // to separate previous and current content based on EVENTTYPE
       if(chunk.includes('<think>')){
@@ -155,24 +139,24 @@ export default function Home() {
         thinking=true;
         chunk=split[1];
       }
-      else if(chunk.includes('</think>')){
+      if(chunk.includes('</think>')){
         const split=chunk.split('</think>');
         completePrev(split[0],'</think>');
         bufferRef.current=split[1]+bufferRef.current;
       }
-      else if(chunk.includes('EVENTTEXT')){
+      if(chunk.includes('EVENTTEXT')){
         const splits=chunk.split('EVENTTEXT');
         completePrev(splits[0],'EVENTTEXT');
         eventText=true;
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTPROJECTSTART')){
+      if(chunk.includes('EVENTPROJECTSTART')){
         const splits=chunk.split('EVENTPROJECTSTART');
         completePrev(splits[0],'EVENTPROJECTSTART');
         eventProject=true;
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTFILESTART')){
+      if(chunk.includes('EVENTFILESTART')){
         const splits=chunk.split('EVENTFILESTART');
         completePrev(splits[0],'EVENTFILESTART');
         setChat(prev=>{
@@ -202,24 +186,24 @@ export default function Home() {
         eventFileName=true;
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTFILELANGUAGE')){
+      if(chunk.includes('EVENTFILELANGUAGE')){
         const splits=chunk.split('EVENTFILELANGUAGE');
         completePrev(splits[0],'EVENTFILELANGUAGE');
         eventFileLanguage=true;
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTFILECONTENT')){
+      if(chunk.includes('EVENTFILECONTENT')){
         const splits=chunk.split('EVENTFILECONTENT');
         completePrev(splits[0],'EVENTFILECONTENT');
         eventFileContent=true;
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTFILEEND')){
+      if(chunk.includes('EVENTFILEEND')){
         const splits=chunk.split('EVENTFILEEND');   
         completePrev(splits[0],'EVENTFILEEND');
         chunk=splits[1];
       }
-      else if(chunk.includes('EVENTPROJECTEND')){
+      if(chunk.includes('EVENTPROJECTEND')){
         const splits=chunk.split('EVENTPROJECTEND');   
         completePrev(splits[0],'EVENTPROJECTEND');
         return;
@@ -299,7 +283,7 @@ export default function Home() {
         return;
       }
 
-    },30);
+    },5);
 
   }
 
